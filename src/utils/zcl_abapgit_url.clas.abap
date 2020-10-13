@@ -20,6 +20,7 @@ CLASS zcl_abapgit_url DEFINITION
     CLASS-METHODS name
       IMPORTING
         !iv_url        TYPE string
+        !iv_validate   TYPE abap_bool DEFAULT abap_false
       RETURNING
         VALUE(rv_name) TYPE string
       RAISING
@@ -31,6 +32,11 @@ CLASS zcl_abapgit_url DEFINITION
         VALUE(rv_path_name) TYPE string
       RAISING
         zcx_abapgit_exception .
+    CLASS-METHODS is_abapgit_repo
+      IMPORTING
+        !iv_url           TYPE string
+      RETURNING
+        VALUE(rv_abapgit) TYPE abap_bool .
   PROTECTED SECTION.
   PRIVATE SECTION.
 
@@ -58,19 +64,38 @@ CLASS ZCL_ABAPGIT_URL IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD is_abapgit_repo.
+
+    IF iv_url CS 'github.com' AND ( iv_url CP '*/abapGit' OR iv_url CP '*/abapGit.git' ).
+      rv_abapgit = abap_true.
+    ENDIF.
+
+  ENDMETHOD.
+
+
   METHOD name.
 
     DATA: lv_path TYPE string.
 
-    regex( EXPORTING iv_url = iv_url
-           IMPORTING ev_name = rv_name
-                     ev_path = lv_path ).
+    TRY.
+        regex( EXPORTING iv_url = iv_url
+               IMPORTING ev_name = rv_name
+                         ev_path = lv_path ).
 
-    IF rv_name IS INITIAL.
-      FIND REGEX '([\w-]+)/$' IN lv_path SUBMATCHES rv_name.
-    ENDIF.
+        IF rv_name IS INITIAL.
+          FIND REGEX '([\w-]+)/$' IN lv_path SUBMATCHES rv_name.
+          IF sy-subrc <> 0.
+            zcx_abapgit_exception=>raise( 'Malformed URL' ).
+          ENDIF.
+        ENDIF.
 
-    ASSERT NOT rv_name IS INITIAL.
+      CATCH zcx_abapgit_exception.
+        IF iv_validate = abap_true.
+          zcx_abapgit_exception=>raise( 'Malformed URL' ).
+        ELSE.
+          rv_name = 'URL error (fix repo with "Advanced > Change Remote")'.
+        ENDIF.
+    ENDTRY.
 
   ENDMETHOD.
 
@@ -87,7 +112,7 @@ CLASS ZCL_ABAPGIT_URL IMPLEMENTATION.
 
   METHOD regex.
 
-    FIND REGEX '(.*://[^/]*)(.*/)([^\.]*)[\.git]?' IN iv_url
+    FIND REGEX '(https?://[^/]*)(.*/)([^\.]*)[\.git]?' IN iv_url
       SUBMATCHES ev_host ev_path ev_name.
     IF sy-subrc <> 0.
       zcx_abapgit_exception=>raise( 'Malformed URL' ).
@@ -98,7 +123,8 @@ CLASS ZCL_ABAPGIT_URL IMPLEMENTATION.
 
   METHOD validate.
 
-    regex( iv_url ).
+    name( iv_url      = iv_url
+          iv_validate = abap_true ).
 
   ENDMETHOD.
 ENDCLASS.

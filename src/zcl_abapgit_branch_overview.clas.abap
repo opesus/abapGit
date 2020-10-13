@@ -7,7 +7,6 @@ CLASS zcl_abapgit_branch_overview DEFINITION
   PUBLIC SECTION.
 
     INTERFACES zif_abapgit_branch_overview .
-    TYPES: ty_commits TYPE STANDARD TABLE OF zif_abapgit_definitions=>ty_commit WITH DEFAULT KEY .
     CONSTANTS c_deleted_branch_name_prefix TYPE string VALUE '__DELETED_BRANCH_' ##NO_TEXT.
 
     METHODS constructor
@@ -20,17 +19,23 @@ CLASS zcl_abapgit_branch_overview DEFINITION
   PRIVATE SECTION.
 
     TYPES:
-      tyt_commit_sha1_range TYPE RANGE OF zif_abapgit_definitions=>ty_sha1 .
+      ty_commit_sha1_range TYPE RANGE OF zif_abapgit_definitions=>ty_sha1 .
 
     DATA mt_branches TYPE zif_abapgit_definitions=>ty_git_branch_list_tt .
-    DATA mt_commits TYPE ty_commits .
+    DATA mt_commits TYPE zif_abapgit_definitions=>ty_commit_tt .
     DATA mt_tags TYPE zif_abapgit_definitions=>ty_git_tag_list_tt .
 
+    METHODS compress_internal
+      IMPORTING
+        !iv_name    TYPE string
+      CHANGING
+        !ct_temp    TYPE zif_abapgit_definitions=>ty_commit_tt
+        !ct_commits TYPE zif_abapgit_definitions=>ty_commit_tt .
     CLASS-METHODS parse_commits
       IMPORTING
         !it_objects       TYPE zif_abapgit_definitions=>ty_objects_tt
       RETURNING
-        VALUE(rt_commits) TYPE ty_commits
+        VALUE(rt_commits) TYPE zif_abapgit_definitions=>ty_commit_tt
       RAISING
         zcx_abapgit_exception .
     METHODS parse_annotated_tags
@@ -59,23 +64,50 @@ CLASS zcl_abapgit_branch_overview DEFINITION
         zcx_abapgit_exception .
     METHODS _sort_commits
       CHANGING
-        !ct_commits TYPE ty_commits .
+        !ct_commits TYPE zif_abapgit_definitions=>ty_commit_tt .
     METHODS _get_1st_child_commit
       IMPORTING
-        !it_commit_sha1s TYPE tyt_commit_sha1_range
+        !it_commit_sha1s TYPE ty_commit_sha1_range
       EXPORTING
-        !et_commit_sha1s TYPE tyt_commit_sha1_range
+        !et_commit_sha1s TYPE ty_commit_sha1_range
         !es_1st_commit   TYPE zif_abapgit_definitions=>ty_commit
       CHANGING
-        !ct_commits      TYPE ty_commits .
+        !ct_commits      TYPE zif_abapgit_definitions=>ty_commit_tt .
     METHODS _reverse_sort_order
       CHANGING
-        !ct_commits TYPE ty_commits .
+        !ct_commits TYPE zif_abapgit_definitions=>ty_commit_tt .
 ENDCLASS.
 
 
 
-CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
+CLASS ZCL_ABAPGIT_BRANCH_OVERVIEW IMPLEMENTATION.
+
+
+  METHOD compress_internal.
+
+    FIELD-SYMBOLS: <ls_temp>     LIKE LINE OF ct_temp,
+                   <ls_new>      LIKE LINE OF ct_commits,
+                   <ls_temp_end> LIKE LINE OF ct_temp.
+
+
+    IF lines( ct_temp ) >= 10.
+      READ TABLE ct_temp ASSIGNING <ls_temp> INDEX 1.
+      ASSERT sy-subrc = 0.
+      READ TABLE ct_temp ASSIGNING <ls_temp_end> INDEX lines( ct_temp ).
+      ASSERT sy-subrc = 0.
+      APPEND INITIAL LINE TO ct_commits ASSIGNING <ls_new>.
+      <ls_new>-sha1       = <ls_temp_end>-sha1.
+      <ls_new>-parent1    = <ls_temp>-parent1.
+      <ls_new>-time       = <ls_temp>-time.
+      <ls_new>-message    = |Compressed, { lines( ct_temp ) } commits|.
+      <ls_new>-branch     = iv_name.
+      <ls_new>-compressed = abap_true.
+    ELSE.
+      APPEND LINES OF ct_temp TO ct_commits.
+    ENDIF.
+    CLEAR ct_temp.
+
+  ENDMETHOD.
 
 
   METHOD constructor.
@@ -300,7 +332,7 @@ CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
 
     li_progress->show(
       iv_current = 1
-      iv_text    = |Get git objects { io_repo->get_name( ) }| ) ##NO_TEXT.
+      iv_text    = |Get git objects { io_repo->get_name( ) }| ).
 
 * get objects directly from git, mo_repo only contains a shallow clone of only
 * the selected branch
@@ -325,14 +357,14 @@ CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
       INSERT ls_tag INTO TABLE mt_tags.
     ENDLOOP.
 
-    zcl_abapgit_git_transport=>upload_pack(
+    zcl_abapgit_git_transport=>upload_pack_by_branch(
       EXPORTING
-        iv_url         = io_repo->get_url( )
-        iv_branch_name = io_repo->get_branch_name( )
-        iv_deepen      = abap_false
-        it_branches    = lt_branches_and_tags
+        iv_url          = io_repo->get_url( )
+        iv_branch_name  = io_repo->get_branch_name( )
+        iv_deepen_level = 0
+        it_branches     = lt_branches_and_tags
       IMPORTING
-        et_objects     = rt_objects ).
+        et_objects      = rt_objects ).
 
     DELETE rt_objects WHERE type = zif_abapgit_definitions=>c_type-blob.
 
@@ -356,7 +388,7 @@ CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
                          WITH KEY sha1 = <ls_object>-sha1.
       ASSERT sy-subrc = 0.
 
-      <ls_tag>-name         = |refs/tags/{ ls_raw-tag }|.
+      <ls_tag>-name         = zif_abapgit_definitions=>c_git_branch-tags_prefix && ls_raw-tag.
       <ls_tag>-sha1         = <ls_object>-sha1.
       <ls_tag>-object       = ls_raw-object.
       <ls_tag>-type         = zif_abapgit_definitions=>c_git_branch_type-annotated_tag.
@@ -405,15 +437,14 @@ CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
         INSERT <lv_body> INTO TABLE ls_commit-body.
       ENDLOOP.
 
-* unix time stamps are in same time zone, so ignore the zone,
-      FIND REGEX zif_abapgit_definitions=>c_author_regex IN ls_raw-author
-        SUBMATCHES
-        ls_commit-author
-        ls_commit-email
-        ls_commit-time ##NO_TEXT.
-      IF sy-subrc <> 0.
-        zcx_abapgit_exception=>raise( 'Error author regex' ).
-      ENDIF.
+      zcl_abapgit_utils=>extract_author_data(
+        EXPORTING
+          iv_author = ls_raw-author
+        IMPORTING
+          ev_author = ls_commit-author
+          ev_email  = ls_commit-email
+          ev_time   = ls_commit-time ).
+
       APPEND ls_commit TO rt_commits.
 
     ENDLOOP.
@@ -423,35 +454,13 @@ CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
 
   METHOD zif_abapgit_branch_overview~compress.
 
-    DEFINE _compress.
-      IF lines( lt_temp ) >= 10.
-        READ TABLE lt_temp ASSIGNING <ls_temp> INDEX 1.
-        ASSERT sy-subrc = 0.
-        READ TABLE lt_temp ASSIGNING <ls_temp_end> INDEX lines( lt_temp ).
-        ASSERT sy-subrc = 0.
-        APPEND INITIAL LINE TO rt_commits ASSIGNING <ls_new>.
-        <ls_new>-sha1       = <ls_temp_end>-sha1.
-        <ls_new>-parent1    = <ls_temp>-parent1.
-        <ls_new>-time       = <ls_temp>-time.
-        <ls_new>-message    = |Compressed, { lines( lt_temp ) } commits|.
-        <ls_new>-branch     = lv_name.
-        <ls_new>-compressed = abap_true.
-      ELSE.
-        APPEND LINES OF lt_temp TO rt_commits.
-      ENDIF.
-      CLEAR lt_temp.
-    END-OF-DEFINITION.
-
     DATA: lv_previous TYPE i,
           lv_index    TYPE i,
           lv_name     TYPE string,
           lt_temp     LIKE it_commits.
 
-    FIELD-SYMBOLS: <ls_branch>   LIKE LINE OF mt_branches,
-                   <ls_new>      LIKE LINE OF rt_commits,
-                   <ls_temp>     LIKE LINE OF lt_temp,
-                   <ls_temp_end> LIKE LINE OF lt_temp,
-                   <ls_commit>   LIKE LINE OF it_commits.
+    FIELD-SYMBOLS: <ls_branch> LIKE LINE OF mt_branches,
+                   <ls_commit> LIKE LINE OF it_commits.
 
     LOOP AT mt_branches ASSIGNING <ls_branch>.
 
@@ -469,7 +478,12 @@ CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
         ENDIF.
 
         IF lv_previous + 1 <> sy-tabix.
-          _compress.
+          compress_internal(
+            EXPORTING
+              iv_name    = lv_name
+            CHANGING
+              ct_temp    = lt_temp
+              ct_commits = rt_commits ).
         ENDIF.
 
         lv_previous = lv_index.
@@ -478,7 +492,12 @@ CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
 
       ENDLOOP.
 
-      _compress.
+      compress_internal(
+        EXPORTING
+          iv_name    = lv_name
+        CHANGING
+          ct_temp    = lt_temp
+          ct_commits = rt_commits ).
 
     ENDLOOP.
 
@@ -506,7 +525,7 @@ CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
 
   METHOD _get_1st_child_commit.
 
-    DATA: lt_1stchild_commits TYPE ty_commits,
+    DATA: lt_1stchild_commits TYPE zif_abapgit_definitions=>ty_commit_tt,
           ls_parent           LIKE LINE OF it_commit_sha1s,
           lt_commit_sha1s     LIKE it_commit_sha1s.
 
@@ -544,7 +563,7 @@ CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
 
 
   METHOD _reverse_sort_order.
-    DATA: lt_commits           TYPE ty_commits.
+    DATA: lt_commits           TYPE zif_abapgit_definitions=>ty_commit_tt.
     FIELD-SYMBOLS: <ls_commit> TYPE zif_abapgit_definitions=>ty_commit.
 
     LOOP AT ct_commits ASSIGNING <ls_commit>.
@@ -558,9 +577,9 @@ CLASS zcl_abapgit_branch_overview IMPLEMENTATION.
 
   METHOD _sort_commits.
 
-    DATA: lt_sorted_commits TYPE ty_commits,
+    DATA: lt_sorted_commits TYPE zif_abapgit_definitions=>ty_commit_tt,
           ls_next_commit    TYPE zif_abapgit_definitions=>ty_commit,
-          lt_parents        TYPE tyt_commit_sha1_range,
+          lt_parents        TYPE ty_commit_sha1_range,
           ls_parent         LIKE LINE OF lt_parents.
 
     FIELD-SYMBOLS: <ls_initial_commit> TYPE zif_abapgit_definitions=>ty_commit.

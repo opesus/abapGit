@@ -14,13 +14,13 @@ CLASS zcl_abapgit_object_sots DEFINITION PUBLIC INHERITING FROM zcl_abapgit_obje
         header  TYPE sotr_headu,
         entries TYPE sotr_textl_tt,
       END OF ty_sots,
-      tty_sots TYPE STANDARD TABLE OF ty_sots
+      ty_sots_tt TYPE STANDARD TABLE OF ty_sots
                     WITH NON-UNIQUE DEFAULT KEY.
 
     METHODS:
       read_sots
         RETURNING
-          VALUE(rt_sots) TYPE tty_sots,
+          VALUE(rt_sots) TYPE ty_sots_tt,
 
       create_sots
         IMPORTING
@@ -52,7 +52,7 @@ CLASS ZCL_ABAPGIT_OBJECT_SOTS IMPLEMENTATION.
           lv_source_langu          TYPE spras,
           ls_header                TYPE btfr_head,
           lv_flag_is_string        TYPE btfr_flag VALUE abap_true,
-          lv_text_tab              TYPE sotr_text_tt,
+          lt_text_tab              TYPE sotr_text_tt,
           lv_concept_default       TYPE sotr_conc,
           lt_entries               TYPE sotr_textl_tt,
           lv_concept               LIKE is_sots-header-concept,
@@ -72,7 +72,7 @@ CLASS ZCL_ABAPGIT_OBJECT_SOTS IMPLEMENTATION.
             lv_source_langu
             lv_flag_correction_entry
             lv_flag_is_string
-      CHANGING lv_text_tab
+      CHANGING lt_text_tab
                lt_entries
                ls_header
                lv_concept
@@ -173,7 +173,7 @@ CLASS ZCL_ABAPGIT_OBJECT_SOTS IMPLEMENTATION.
 
   METHOD zif_abapgit_object~delete.
 
-    DATA: lt_sots TYPE tty_sots.
+    DATA: lt_sots TYPE ty_sots_tt.
 
     FIELD-SYMBOLS: <ls_sots> TYPE ty_sots.
 
@@ -205,7 +205,7 @@ CLASS ZCL_ABAPGIT_OBJECT_SOTS IMPLEMENTATION.
 
   METHOD zif_abapgit_object~deserialize.
 
-    DATA: lt_sots    TYPE tty_sots,
+    DATA: lt_sots    TYPE ty_sots_tt,
           lt_objects TYPE sotr_objects,
           lv_object  LIKE LINE OF lt_objects.
 
@@ -342,7 +342,7 @@ CLASS ZCL_ABAPGIT_OBJECT_SOTS IMPLEMENTATION.
 
   METHOD zif_abapgit_object~serialize.
 
-    DATA: lt_sots TYPE tty_sots.
+    DATA: lt_sots TYPE ty_sots_tt.
 
     FIELD-SYMBOLS: <ls_sots>  TYPE ty_sots,
                    <ls_entry> TYPE sotr_textl.

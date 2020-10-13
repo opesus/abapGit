@@ -11,21 +11,21 @@ CLASS zcl_abapgit_object_cus2 DEFINITION PUBLIC INHERITING FROM zcl_abapgit_obje
 
   PROTECTED SECTION.
   PRIVATE SECTION.
-    TYPES: tty_attribute_titles        TYPE STANDARD TABLE OF cus_atrt
+    TYPES: ty_attribute_titles        TYPE STANDARD TABLE OF cus_atrt
                                             WITH NON-UNIQUE DEFAULT KEY,
-           tty_attribute_countries     TYPE STANDARD TABLE OF cus_atrcou
+           ty_attribute_countries     TYPE STANDARD TABLE OF cus_atrcou
                                             WITH NON-UNIQUE DEFAULT KEY,
-           tty_attribute_components    TYPE STANDARD TABLE OF tfm18
+           ty_attribute_components    TYPE STANDARD TABLE OF tfm18
                                             WITH NON-UNIQUE DEFAULT KEY,
-           tty_attribute_comp_variants TYPE STANDARD TABLE OF cus_atrvco
+           ty_attribute_comp_variants TYPE STANDARD TABLE OF cus_atrvco
                                             WITH NON-UNIQUE DEFAULT KEY.
 
     TYPES: BEGIN OF ty_customizing_attribute,
              header              TYPE cus_atrh,
-             titles              TYPE tty_attribute_titles,
-             countries           TYPE tty_attribute_countries,
-             components          TYPE tty_attribute_components,
-             components_variants TYPE tty_attribute_comp_variants,
+             titles              TYPE ty_attribute_titles,
+             countries           TYPE ty_attribute_countries,
+             components          TYPE ty_attribute_components,
+             components_variants TYPE ty_attribute_comp_variants,
            END OF ty_customizing_attribute.
 
     DATA: mv_img_attribute TYPE cus_atr.
@@ -162,6 +162,10 @@ CLASS ZCL_ABAPGIT_OBJECT_CUS2 IMPLEMENTATION.
            ls_customizing_attribute-header-fuser,
            ls_customizing_attribute-header-ldatetime,
            ls_customizing_attribute-header-luser.
+
+    IF io_xml->i18n_params( )-serialize_master_lang_only = abap_true.
+      DELETE ls_customizing_attribute-titles WHERE spras <> mv_language.
+    ENDIF.
 
     io_xml->add( iv_name = 'CUS2'
                  ig_data = ls_customizing_attribute ).

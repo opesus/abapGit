@@ -11,21 +11,21 @@ CLASS zcl_abapgit_object_cus1 DEFINITION PUBLIC INHERITING FROM zcl_abapgit_obje
 
   PROTECTED SECTION.
   PRIVATE SECTION.
-    TYPES: tty_activity_titles TYPE STANDARD TABLE OF cus_actt
+    TYPES: ty_activity_titles TYPE STANDARD TABLE OF cus_actt
                                     WITH NON-UNIQUE DEFAULT KEY,
 
-           tty_objects         TYPE STANDARD TABLE OF cus_actobj
+           ty_objects         TYPE STANDARD TABLE OF cus_actobj
                             WITH NON-UNIQUE DEFAULT KEY,
 
-           tty_objects_title   TYPE STANDARD TABLE OF cus_actobt
+           ty_objects_title   TYPE STANDARD TABLE OF cus_actobt
                                   WITH NON-UNIQUE DEFAULT KEY,
 
            BEGIN OF ty_customzing_activity,
              activity_header        TYPE cus_acth,
              activity_customer_exit TYPE cus_actext,
-             activity_title         TYPE tty_activity_titles,
-             objects                TYPE tty_objects,
-             objects_title          TYPE tty_objects_title,
+             activity_title         TYPE ty_activity_titles,
+             objects                TYPE ty_objects,
+             objects_title          TYPE ty_objects_title,
            END OF ty_customzing_activity.
 
     DATA: mv_customizing_activity TYPE cus_img_ac.
@@ -106,7 +106,7 @@ CLASS ZCL_ABAPGIT_OBJECT_CUS1 IMPLEMENTATION.
         mode                = 'I'
         global_lock         = abap_true
         devclass            = iv_package
-        master_language     = sy-langu
+        master_language     = mv_language
         suppress_dialog     = abap_true
       EXCEPTIONS
         cancelled           = 1
@@ -186,6 +186,10 @@ CLASS ZCL_ABAPGIT_OBJECT_CUS1 IMPLEMENTATION.
            ls_customzing_activity-activity_header-fuser,
            ls_customzing_activity-activity_header-ldatetime,
            ls_customzing_activity-activity_header-luser.
+
+    IF io_xml->i18n_params( )-serialize_master_lang_only = abap_true.
+      DELETE ls_customzing_activity-activity_title WHERE spras <> mv_language.
+    ENDIF.
 
     io_xml->add( iv_name = 'CUS1'
                  ig_data = ls_customzing_activity ).

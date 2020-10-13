@@ -101,8 +101,8 @@ CLASS ZCL_ABAPGIT_OBJECT_SCP1 IMPLEMENTATION.
   METHOD call_delete_fms.
 
     CONSTANTS:
-      lc_version_new      TYPE c VALUE 'N' ##NO_TEXT, "Include SCPRINTCONST version_new
-      lc_operation_delete TYPE c VALUE 'D' ##NO_TEXT.
+      lc_version_new      TYPE c VALUE 'N', "Include SCPRINTCONST version_new
+      lc_operation_delete TYPE c VALUE 'D'.
 
     DATA:
       lv_profile_type   TYPE scprattr-type,
@@ -234,7 +234,7 @@ CLASS ZCL_ABAPGIT_OBJECT_SCP1 IMPLEMENTATION.
 * copy everything to local, the function module changes the values
     ls_scp1 = is_scp1.
 
-    READ TABLE ls_scp1-scprtext INTO ls_text WITH KEY langu = sy-langu. "#EC CI_SUBRC
+    READ TABLE ls_scp1-scprtext INTO ls_text WITH KEY langu = mv_language. "#EC CI_SUBRC
 
     CALL FUNCTION 'SCPR_TEMPL_MN_TEMPLATE_SAVE'
       EXPORTING
@@ -287,7 +287,7 @@ CLASS ZCL_ABAPGIT_OBJECT_SCP1 IMPLEMENTATION.
 * copy everything to local, the function module changes the values
     ls_scp1 = is_scp1.
 
-    READ TABLE ls_scp1-scprtext INTO ls_text WITH KEY langu = sy-langu. "#EC CI_SUBRC
+    READ TABLE ls_scp1-scprtext INTO ls_text WITH KEY langu = mv_language. "#EC CI_SUBRC
 
 * see fm SCPR_PRSET_DB_STORE, only this field and sequence is used
     LOOP AT ls_scp1-subprofs INTO ls_profs.
@@ -398,7 +398,7 @@ CLASS ZCL_ABAPGIT_OBJECT_SCP1 IMPLEMENTATION.
 
 
   METHOD zif_abapgit_object~get_deserialize_steps.
-    APPEND zif_abapgit_object=>gc_step_id-abap TO rt_steps.
+    APPEND zif_abapgit_object=>gc_step_id-late TO rt_steps.
   ENDMETHOD.
 
 

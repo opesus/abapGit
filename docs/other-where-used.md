@@ -10,7 +10,7 @@ order: 50
 * Queensland Health
 * RheinEnergie AG, Cologne, Germany
 * Sword Holdings
-* bonprix Handelsgesellschaft mbH, Germany 
+* bonprix Handelsgesellschaft mbH, Germany
 * [CHS Inc.](https://www.chsinc.com)
 * [TRR, Sweden](https://www.trr.se)
 
@@ -19,10 +19,12 @@ order: 50
 * [SAP Labs Czech Republic](https://www.facebook.com/SAPLabsCZ/)
 
 ### Consulting and Partner
+* [abat AG](https://www.abat.de/)
 * Computerservice Wolf
 * [CQSE](https://www.cqse.eu/)
 * [Discovery Consulting](https://www.discoveryconsulting.com.au)
 * [emineo](https://www.emineo.ch/)
+* [Hochfrequenz Unternehmensberatung GmbH](https://www.hochfrequenz.de/)
 * [INVIXO](http://invixo.com/)
 * [majcon](https://www.majcon.de/)
 * [Microsoft Azure](https://github.com/Microsoft/ABAP-SDK-for-Azure)
@@ -33,7 +35,8 @@ order: 50
 * SE38 IT-Engineering, Neuss, Germany
 * [Tricktresor](https://www.tricktresor.de)
 * [Yelcho Systems Consulting](http://www.yelcho.com.au/)
+* [Resulto Consultoria](https://www.resultoconsultoria.com/)
 
 [Projects using abapGit listed on dotabap.org](http://dotabap.org)
 
-Initial list reported at [issue #1574](https://github.com/larshp/abapGit/issues/1574). Updates can be made via pull request.
+Initial list reported at [issue #1574](https://github.com/abapGit/abapGit/issues/1574). Updates can be made via pull request.

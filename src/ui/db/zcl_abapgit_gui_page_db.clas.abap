@@ -5,9 +5,9 @@ CLASS zcl_abapgit_gui_page_db DEFINITION
   CREATE PUBLIC .
 
   PUBLIC SECTION.
-    INTERFACES: zif_abapgit_gui_page_hotkey.
 
-    METHODS constructor .
+    METHODS constructor
+      RAISING zcx_abapgit_exception.
 
     METHODS zif_abapgit_gui_event_handler~on_event
         REDEFINITION .
@@ -43,7 +43,7 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_DB IMPLEMENTATION.
 
   METHOD constructor.
     super->constructor( ).
-    ms_control-page_title = 'DATABASE PERSISTENCY'.
+    ms_control-page_title = 'Database Utility'.
   ENDMETHOD.
 
 
@@ -61,7 +61,7 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_DB IMPLEMENTATION.
       iv_text_button_2         = 'Cancel'
       iv_icon_button_2         = 'ICON_CANCEL'
       iv_default_button        = '2'
-      iv_display_cancel_button = abap_false ).                 "#EC NOTEXT
+      iv_display_cancel_button = abap_false ).
 
     IF lv_answer = '2'.
       RAISE EXCEPTION TYPE zcx_abapgit_cancel.
@@ -130,7 +130,7 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_DB IMPLEMENTATION.
 
   METHOD render_content.
 
-    DATA: lt_data    TYPE zif_abapgit_persistence=>tt_content,
+    DATA: lt_data    TYPE zif_abapgit_persistence=>ty_contents,
           lv_action  TYPE string,
           lv_trclass TYPE string,
           lo_toolbar TYPE REF TO zcl_abapgit_html_toolbar.
@@ -140,67 +140,69 @@ CLASS ZCL_ABAPGIT_GUI_PAGE_DB IMPLEMENTATION.
 
     lt_data = zcl_abapgit_persistence_db=>get_instance( )->list( ).
 
-    CREATE OBJECT ro_html.
+    CREATE OBJECT ri_html TYPE zcl_abapgit_html.
 
-    ro_html->add( '<div class="db_list">' ).
-    ro_html->add( '<table class="db_tab">' ).
+    ri_html->add( '<div class="db_list">' ).
+    ri_html->add( '<table class="db_tab">' ).
 
     " Header
-    ro_html->add( '<thead>' ).
-    ro_html->add( '<tr>' ).
-    ro_html->add( '<th>Type</th>' ).
-    ro_html->add( '<th>Key</th>' ).
-    ro_html->add( '<th>Data</th>' ).
-    ro_html->add( '<th></th>' ).
-    ro_html->add( '</tr>' ).
-    ro_html->add( '</thead>' ).
-    ro_html->add( '<tbody>' ).
+    ri_html->add( '<thead>' ).
+    ri_html->add( '<tr>' ).
+    ri_html->add( '<th>Type</th>' ).
+    ri_html->add( '<th>Key</th>' ).
+    ri_html->add( '<th>Data</th>' ).
+    ri_html->add( '<th></th>' ).
+    ri_html->add( '</tr>' ).
+    ri_html->add( '</thead>' ).
+    ri_html->add( '<tbody>' ).
 
     " Lines
     LOOP AT lt_data ASSIGNING <ls_data>.
       CLEAR lv_trclass.
       IF sy-tabix = 1.
-        lv_trclass = ' class="firstrow"' ##NO_TEXT.
+        lv_trclass = ' class="firstrow"'.
       ENDIF.
 
       lv_action  = zcl_abapgit_html_action_utils=>dbkey_encode( <ls_data> ).
 
       CREATE OBJECT lo_toolbar.
-      lo_toolbar->add( iv_txt = 'Display' iv_act = |{ zif_abapgit_definitions=>c_action-db_display }?{ lv_action }| ).
-      lo_toolbar->add( iv_txt = 'Edit'    iv_act = |{ zif_abapgit_definitions=>c_action-db_edit }?{ lv_action }| ).
-      lo_toolbar->add( iv_txt = 'Delete'  iv_act = |{ c_action-delete }?{ lv_action }| ).
+      lo_toolbar->add( iv_txt = 'Display'
+                       iv_act = |{ zif_abapgit_definitions=>c_action-db_display }?{ lv_action }| ).
+      lo_toolbar->add( iv_txt = 'Edit'
+                       iv_act = |{ zif_abapgit_definitions=>c_action-db_edit }?{ lv_action }| ).
+      lo_toolbar->add( iv_txt = 'Delete'
+                       iv_act = |{ c_action-delete }?{ lv_action }| ).
 
-      ro_html->add( |<tr{ lv_trclass }>| ).
-      ro_html->add( |<td>{ <ls_data>-type }</td>| ).
-      ro_html->add( |<td>{ <ls_data>-value }</td>| ).
-      ro_html->add( |<td class="data">{ explain_content( <ls_data> ) }</td>| ).
-      ro_html->add( '<td>' ).
-      ro_html->add( lo_toolbar->render( ) ).
-      ro_html->add( '</td>' ).
-      ro_html->add( '</tr>' ).
+      ri_html->add( |<tr{ lv_trclass }>| ).
+      ri_html->add( |<td>{ <ls_data>-type }</td>| ).
+      ri_html->add( |<td>{ <ls_data>-value }</td>| ).
+      ri_html->add( |<td class="data">{ explain_content( <ls_data> ) }</td>| ).
+      ri_html->add( '<td>' ).
+      ri_html->add( lo_toolbar->render( ) ).
+      ri_html->add( '</td>' ).
+      ri_html->add( '</tr>' ).
     ENDLOOP.
 
-    ro_html->add( '</tbody>' ).
-    ro_html->add( '</table>' ).
-    ro_html->add( '</div>' ).
-
-  ENDMETHOD.
-
-
-  METHOD zif_abapgit_gui_page_hotkey~get_hotkey_actions.
+    ri_html->add( '</tbody>' ).
+    ri_html->add( '</table>' ).
+    ri_html->add( '</div>' ).
 
   ENDMETHOD.
 
 
   METHOD zif_abapgit_gui_event_handler~on_event.
 
-    DATA: ls_db TYPE zif_abapgit_persistence=>ty_content.
+    DATA ls_db TYPE zif_abapgit_persistence=>ty_content.
+    DATA lo_query TYPE REF TO zcl_abapgit_string_map.
 
-    CASE iv_action.
+    lo_query = ii_event->query( ).
+    CASE ii_event->mv_action.
       WHEN c_action-delete.
-        ls_db = zcl_abapgit_html_action_utils=>dbkey_decode( iv_getdata ).
+        lo_query->to_abap( CHANGING cs_container = ls_db ).
         delete( ls_db ).
-        ev_state = zcl_abapgit_gui=>c_event_state-re_render.
+        rs_handled-state = zcl_abapgit_gui=>c_event_state-re_render.
+      WHEN OTHERS.
+        rs_handled = super->zif_abapgit_gui_event_handler~on_event( ii_event ).
     ENDCASE.
 
   ENDMETHOD.

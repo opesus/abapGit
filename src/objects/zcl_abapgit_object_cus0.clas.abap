@@ -11,11 +11,11 @@ CLASS zcl_abapgit_object_cus0 DEFINITION PUBLIC INHERITING FROM zcl_abapgit_obje
 
   PROTECTED SECTION.
   PRIVATE SECTION.
-    TYPES: tty_img_activity_texts TYPE STANDARD TABLE OF cus_imgact
+    TYPES: ty_img_activity_texts TYPE STANDARD TABLE OF cus_imgact
                                        WITH NON-UNIQUE DEFAULT KEY,
            BEGIN OF ty_img_activity,
              header TYPE cus_imgach,
-             texts  TYPE tty_img_activity_texts,
+             texts  TYPE ty_img_activity_texts,
            END OF ty_img_activity.
     DATA: mv_img_activity TYPE cus_img_ac.
 
@@ -70,7 +70,7 @@ CLASS ZCL_ABAPGIT_OBJECT_CUS0 IMPLEMENTATION.
         cg_data = ls_img_activity ).
 
     READ TABLE ls_img_activity-texts INTO ls_text
-                                     WITH KEY spras = sy-langu.
+                                     WITH KEY spras = mv_language.
 
     CALL FUNCTION 'S_CUS_IMG_ACTIVITY_SAVE'
       EXPORTING
@@ -88,7 +88,7 @@ CLASS ZCL_ABAPGIT_OBJECT_CUS0 IMPLEMENTATION.
         mode                = 'I'
         global_lock         = abap_true
         devclass            = iv_package
-        master_language     = sy-langu
+        master_language     = mv_language
         suppress_dialog     = abap_true
       EXCEPTIONS
         cancelled           = 1
@@ -151,11 +151,6 @@ CLASS ZCL_ABAPGIT_OBJECT_CUS0 IMPLEMENTATION.
 
 *   doesn't work...
 *    CALL FUNCTION 'S_CUS_IMG_ACTIVITY_MAINTAIN'
-*      EXPORTING
-*        i_display        = 'X'
-*        i_no_replacement = 'X'
-*      CHANGING
-*        img_activity     = mv_img_activity.
 
   ENDMETHOD.
 
@@ -178,6 +173,10 @@ CLASS ZCL_ABAPGIT_OBJECT_CUS0 IMPLEMENTATION.
            ls_img_activity-header-luser,
            ls_img_activity-header-ldate,
            ls_img_activity-header-ltime.
+
+    IF io_xml->i18n_params( )-serialize_master_lang_only = abap_true.
+      DELETE ls_img_activity-texts WHERE spras <> mv_language.
+    ENDIF.
 
     io_xml->add( iv_name = 'CUS0'
                  ig_data = ls_img_activity ).

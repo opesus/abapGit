@@ -5,8 +5,8 @@ CLASS zcl_abapgit_object_enqu DEFINITION PUBLIC INHERITING FROM zcl_abapgit_obje
     ALIASES mo_files FOR zif_abapgit_object~mo_files.
   PROTECTED SECTION.
   PRIVATE SECTION.
-    TYPES: tyt_dd27p TYPE STANDARD TABLE OF dd27p WITH DEFAULT KEY.
-    METHODS _clear_dd27p_fields CHANGING ct_dd27p TYPE tyt_dd27p.
+    TYPES: ty_dd27p TYPE STANDARD TABLE OF dd27p WITH DEFAULT KEY.
+    METHODS _clear_dd27p_fields CHANGING ct_dd27p TYPE ty_dd27p.
 
 ENDCLASS.
 
@@ -31,24 +31,11 @@ CLASS ZCL_ABAPGIT_OBJECT_ENQU IMPLEMENTATION.
 
   METHOD zif_abapgit_object~delete.
 
-    DATA: lv_objname TYPE rsedd0-ddobjname.
-
-
-    lv_objname = ms_item-obj_name.
-
-    CALL FUNCTION 'RS_DD_DELETE_OBJ'
-      EXPORTING
-        no_ask               = abap_true
-        objname              = lv_objname
-        objtype              = 'L'
-      EXCEPTIONS
-        not_executed         = 1
-        object_not_found     = 2
-        object_not_specified = 3
-        permission_failure   = 4.
-    IF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( 'error from RS_DD_DELETE_OBJ, ENQU' ).
+    IF zif_abapgit_object~exists( ) = abap_false.
+      RETURN.
     ENDIF.
+
+    delete_ddic( 'L' ).
 
   ENDMETHOD.
 
@@ -58,7 +45,7 @@ CLASS ZCL_ABAPGIT_OBJECT_ENQU IMPLEMENTATION.
     DATA: lv_name  TYPE ddobjname,
           ls_dd25v TYPE dd25v,
           lt_dd26e TYPE TABLE OF dd26e,
-          lt_dd27p TYPE tyt_dd27p.
+          lt_dd27p TYPE ty_dd27p.
 
 
     io_xml->read( EXPORTING iv_name = 'DD25V'
@@ -68,7 +55,8 @@ CLASS ZCL_ABAPGIT_OBJECT_ENQU IMPLEMENTATION.
     io_xml->read( EXPORTING iv_name = 'DD27P_TABLE'
                   CHANGING cg_data = lt_dd27p ).
 
-    corr_insert( iv_package = iv_package iv_object_class = 'DICT' ).
+    corr_insert( iv_package = iv_package
+                 ig_object_class = 'DICT' ).
 
     lv_name = ms_item-obj_name.
 
@@ -99,11 +87,8 @@ CLASS ZCL_ABAPGIT_OBJECT_ENQU IMPLEMENTATION.
 
     DATA: lv_viewname TYPE dd25l-viewname.
 
-
     SELECT SINGLE viewname FROM dd25l INTO lv_viewname
-      WHERE viewname = ms_item-obj_name
-      AND as4local = 'A'
-      AND as4vers = '0000'.
+      WHERE viewname = ms_item-obj_name.
     rv_bool = boolc( sy-subrc = 0 ).
 
   ENDMETHOD.
@@ -150,7 +135,7 @@ CLASS ZCL_ABAPGIT_OBJECT_ENQU IMPLEMENTATION.
     DATA: lv_name  TYPE ddobjname,
           ls_dd25v TYPE dd25v,
           lt_dd26e TYPE TABLE OF dd26e,
-          lt_dd27p TYPE tyt_dd27p.
+          lt_dd27p TYPE ty_dd27p.
 
     lv_name = ms_item-obj_name.
 

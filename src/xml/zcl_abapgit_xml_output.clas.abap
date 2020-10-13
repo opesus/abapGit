@@ -5,41 +5,13 @@ CLASS zcl_abapgit_xml_output DEFINITION
 
   PUBLIC SECTION.
 
-    TYPES:
-      BEGIN OF ty_i18n_params,
-        serialize_master_lang_only TYPE abap_bool,
-      END OF ty_i18n_params.
-
-    METHODS add
-      IMPORTING
-        !iv_name TYPE clike
-        !ig_data TYPE any
-      RAISING
-        zcx_abapgit_exception .
-    METHODS set_raw
-      IMPORTING
-        !ii_raw TYPE REF TO if_ixml_element .
-    METHODS add_xml
-      IMPORTING
-        !iv_name TYPE clike
-        !ii_xml  TYPE REF TO if_ixml_element .
-    METHODS render
-      IMPORTING
-        !iv_normalize TYPE abap_bool DEFAULT abap_true
-        !is_metadata  TYPE zif_abapgit_definitions=>ty_metadata OPTIONAL
-      RETURNING
-        VALUE(rv_xml) TYPE string .
-    METHODS i18n_params
-      IMPORTING
-        iv_serialize_master_lang_only TYPE ty_i18n_params-serialize_master_lang_only OPTIONAL
-      RETURNING
-        VALUE(rs_params) TYPE ty_i18n_params.
+    INTERFACES zif_abapgit_xml_output.
 
   PROTECTED SECTION.
   PRIVATE SECTION.
 
     DATA mi_raw TYPE REF TO if_ixml_element .
-    DATA ms_i18n_params TYPE ty_i18n_params .
+    DATA ms_i18n_params TYPE zif_abapgit_xml_output~ty_i18n_params .
 
     METHODS build_asx_node
       RETURNING
@@ -48,10 +20,10 @@ ENDCLASS.
 
 
 
-CLASS ZCL_ABAPGIT_XML_OUTPUT IMPLEMENTATION.
+CLASS zcl_abapgit_xml_output IMPLEMENTATION.
 
 
-  METHOD add.
+  METHOD zif_abapgit_xml_output~add.
 
     DATA: li_node TYPE REF TO if_ixml_node,
           li_doc  TYPE REF TO if_ixml_document,
@@ -88,7 +60,7 @@ CLASS ZCL_ABAPGIT_XML_OUTPUT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD add_xml.
+  METHOD zif_abapgit_xml_output~add_xml.
 
     DATA: li_element TYPE REF TO if_ixml_element.
 
@@ -122,7 +94,7 @@ CLASS ZCL_ABAPGIT_XML_OUTPUT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD i18n_params.
+  METHOD zif_abapgit_xml_output~i18n_params.
 
     IF iv_serialize_master_lang_only IS SUPPLIED.
       ms_i18n_params-serialize_master_lang_only = iv_serialize_master_lang_only.
@@ -133,7 +105,7 @@ CLASS ZCL_ABAPGIT_XML_OUTPUT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD render.
+  METHOD zif_abapgit_xml_output~render.
 
     DATA: li_git  TYPE REF TO if_ixml_element,
           li_abap TYPE REF TO if_ixml_element.
@@ -150,7 +122,8 @@ CLASS ZCL_ABAPGIT_XML_OUTPUT IMPLEMENTATION.
     ENDIF.
 
     li_git = mi_xml_doc->create_element( c_abapgit_tag ).
-    li_git->set_attribute( name = c_attr_version value = zif_abapgit_version=>gc_xml_version ).
+    li_git->set_attribute( name = c_attr_version
+                           value = zif_abapgit_version=>gc_xml_version ).
     IF NOT is_metadata IS INITIAL.
       li_git->set_attribute( name  = c_attr_serializer
                              value = is_metadata-class ).
@@ -165,7 +138,7 @@ CLASS ZCL_ABAPGIT_XML_OUTPUT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD set_raw.
+  METHOD zif_abapgit_xml_output~set_raw.
     mi_raw = ii_raw.
   ENDMETHOD.
 ENDCLASS.
